@@ -7,6 +7,11 @@ from django.contrib import messages
 from .forms import PostForm
 from .models import Post
 # Create your views here.
+
+@login_required(login_url='sign_in')
+def index(request):
+    return render(request,"html/index.html")
+
 def register(request):
     if request.method=='POST':
         username=request.POST.get('username')
@@ -30,7 +35,8 @@ def sign_in(request):
         user = auth.authenticate(username=username,password=password)
         if user is not None:
             login(request,user)
-            return redirect("index")
+            messages.success(request,"Successfully Logged In !")
+            return render(request,"html/index.html")
         return HttpResponse('<h1>Sorry, no such user</h1>')
 
 @login_required(login_url='sign_in')
@@ -38,14 +44,19 @@ def sign_out(request):
     if request.user.is_anonymous:
         return HttpResponse("<h1>BAD WAY REQUEST</h1>")
     logout(request)
-    messages.error(request,"Successfully Logout !")
+    messages.success(request,"Successfully Logout !")
     return redirect(reverse('sign_in'))
 
 @login_required(login_url='sign_in')
-def index(request):
+def post_data(request):
+    post_data = Post.objects.db_manager('User_db').all()
+    return render(request,"html/Post_data.html",{"data":post_data})
+
+@login_required(login_url='sign_in')
+def post_create(request):
     if request.method == "GET":
         form = PostForm
-        return render(request,'html/index.html',{'form':form})
+        return render(request,'html/Post.html',{'form':form})
     else:
         form = PostForm(request.POST)
         if form.is_valid():
@@ -54,9 +65,30 @@ def index(request):
             data = Post(user=user,text=text)
             data.save()
             messages.success(request,"Post created Successfully !")
-            return redirect('index')
+            return redirect('view_posts')
         else:
             messages.error(request,"Invalid Data provided !")
-            return redirect('index')
+            return redirect('post_create')
 
-    
+@login_required(login_url='sign_in')
+def post_delete(request,pk):
+    if request.method == "POST":
+        data = Post.objects.db_manager('User_db').get(pk=pk)
+        data.delete()
+        messages.success(request,"Post deleted Successfully !")
+        return redirect('view_posts')
+
+@login_required(login_url='sign_in')
+def post_update(request,pk):
+    if request.method == 'POST':
+        data = Post.objects.db_manager('User_db').get(pk=pk)
+        form = PostForm(request.POST,instance=data)
+        if form.is_valid():
+            form.save()
+        messages.success(request,"Post updated Successfully !")
+        return redirect('view_posts')
+    else:
+        data = Post.objects.db_manager('User_db').get(pk=pk)
+        form = PostForm(instance=data)
+        return render(request,"html/post_update.html",{"form":form})
+
